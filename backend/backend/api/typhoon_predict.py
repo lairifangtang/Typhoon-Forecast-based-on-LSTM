@@ -26,19 +26,45 @@ blue_typhoon_predict = Blueprint('blue_typhoon_predict', __name__)
 
 # 获取当前脚本所在的目录路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# 构建模型文件的相对路径
-# 加载LSTM模型
-model_path = os.path.join(current_dir, "..", "typhoon_LSTM", "lstm_model.h5")
-model = tf.keras.models.load_model(model_path)
 
-# 加载标准化参数
-model_path = os.path.join(current_dir, "..", "typhoon_LSTM", "scaler_X.pkl")
-scaler_X = joblib.load(model_path)
-model_path = os.path.join(current_dir, "..", "typhoon_LSTM", "scaler_y.pkl")
-scaler_y = joblib.load(model_path)
+# 全局变量用于缓存模型和标准化器
+model = None
+scaler_X = None
+scaler_y = None
+
+def load_models():
+    """延迟加载模型和标准化器，避免启动时加载失败"""
+    global model, scaler_X, scaler_y
+    
+    if model is None or scaler_X is None or scaler_y is None:
+        try:
+            # 构建模型文件的相对路径
+            model_path = os.path.join(current_dir, "..", "typhoon_LSTM", "lstm_model.h5")
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model file not found: {model_path}")
+            model = tf.keras.models.load_model(model_path)
+
+            # 加载标准化参数
+            scaler_x_path = os.path.join(current_dir, "..", "typhoon_LSTM", "scaler_X.pkl")
+            if not os.path.exists(scaler_x_path):
+                raise FileNotFoundError(f"Scaler X file not found: {scaler_x_path}")
+            scaler_X = joblib.load(scaler_x_path)
+            
+            scaler_y_path = os.path.join(current_dir, "..", "typhoon_LSTM", "scaler_y.pkl")
+            if not os.path.exists(scaler_y_path):
+                raise FileNotFoundError(f"Scaler Y file not found: {scaler_y_path}")
+            scaler_y = joblib.load(scaler_y_path)
+            
+            print("Models loaded successfully")
+        except Exception as e:
+            print(f"Error loading models: {e}")
+            raise
 
 
 def Cal_line(lat, lon, dist2land, storm_speed, storm_dir, usa_wind, usa_sshs, basin, nature, track_type):
+    # 确保模型已加载
+    load_models()
+    
     # 创建一个DataFrame并设置默认值为0
     input_data = pd.DataFrame({
         'LAT': [lat],
@@ -142,14 +168,30 @@ def line_request():
     typhoon1 = TyphoonInfo.query.filter_by(account_id=account_id, ty_name=ty_name).first()
     typhoon2 = TyphoonInfo.query.filter_by(ty_name=ty_name, isPublic=True).first()
 
+    typhoon = None
     if typhoon1:
         typhoon = typhoon1
     elif typhoon2:
         typhoon = typhoon2
 
-    predict = Cal_line(lat=typhoon.lat, lon=typhoon.lon, dist2land=typhoon.dist2land,
-                       storm_speed=typhoon.speed, storm_dir=typhoon.dir, usa_wind=typhoon.usa_wind,
-                       usa_sshs=typhoon.sshs, basin=typhoon.basin, nature=typhoon.nature, track_type=typhoon.track)
+    # 检查台风是否存在
+    if not typhoon:
+        return jsonify({
+            'msg': f'台风 {ty_name} 不存在或您没有访问权限',
+            'result': None,
+            'success': False
+        }), 404
+
+    try:
+        predict = Cal_line(lat=typhoon.lat, lon=typhoon.lon, dist2land=typhoon.dist2land,
+                           storm_speed=typhoon.speed, storm_dir=typhoon.dir, usa_wind=typhoon.usa_wind,
+                           usa_sshs=typhoon.sshs, basin=typhoon.basin, nature=typhoon.nature, track_type=typhoon.track)
+    except Exception as e:
+        return jsonify({
+            'msg': f'模型预测失败: {str(e)}',
+            'result': None,
+            'success': False
+        }), 500
 
 
     y1 = predict[0]
