@@ -64,18 +64,21 @@ def log_request(func):
         status_code = str(response.status_code)
 
         # 将请求头、请求体、返回头、返回体、HTTP 状态码和时间戳写入文件
-        with open('C:\\Users\\17995\\Desktop\\share\\share.txt', 'a') as file:
+        import os
+        log_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs', 'request_logs.txt')
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+        with open(log_file_path, 'a', encoding='utf-8') as file:
             file.write('--------- -------- -------- --------- --------\n')
             file.write('------Request------\n')
-            if not request_headers:
+            if request_headers:
                 file.write(f"Request Headers: {request_headers}\n")
-            if not request_body:
+            if request_body:
                 file.write(f"Request Body: {request_body}\n\n")
 
             file.write('------Response------\n')
-            if not response_headers:
+            if response_headers:
                 file.write(f"Response Headers: {response_headers}\n")
-            if not response_body:
+            if response_body:
                 file.write(f"Response Body: {response_body}\n")
             file.write(f"Status Code: {status_code}\n")
             file.write(f"Timestamp: {timestamp}\n\n")

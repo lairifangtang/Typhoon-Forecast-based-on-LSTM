@@ -21,7 +21,7 @@ Vue.config.productionTip = false
 Vue.use(ElementUI) // Element 3
 Vue.use(VueRouter)
 Vue.use(VueAxios,axios)
-Vue.use(BMap, { ak :'agNZwShLeFNXIaoXS4wPYd02pKXyvVnt'})
+Vue.use(BMap, { ak: process.env.VUE_APP_BAIDU_MAPS_API_KEY || 'agNZwShLeFNXIaoXS4wPYd02pKXyvVnt'})
 Vue.use(VueCookies)
 
 Vue.mixin(cookieMixin)
